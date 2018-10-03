@@ -5,88 +5,107 @@
  */
 'use strict';
 
-const NetworkRequest = require('../../lib/network-request');
 const Audit = require('../../audits/font-display.js');
 const assert = require('assert');
 
 /* eslint-env jest */
-const openSansFont = {
-  display: 'auto',
-  family: 'open Sans',
-  stretch: 'normal',
-  style: 'normal',
-  weight: '400',
-  src: [
-    'https://fonts.gstatic.com/s/opensans/v15/u-WUoqrET9fUeobQW7jkRYX0hVgzZQUfRDuZrPvH3D8.ttf',
-    'https://fonts.gstatic.com/s/opensans/v15/u-WUoqrET9fUeobQW7jkRYX0hVgzZQUfRDuZrPvH3D8.woff2',
-  ],
-};
-const openSansFontBold = {
-  display: 'auto',
-  family: 'open Sans',
-  stretch: 'normal',
-  style: 'normal',
-  weight: '600',
-  src: [
-    'https://fonts.gstatic.com/s/opensans/v15/k3k702ZOKiLJc3WVjuplzA7aC6SjiAOpAWOKfJDfVRY.woff2',
-  ],
-};
 
 describe('Performance: Font Display audit', () => {
-  function getArtifacts(networkRecords, fonts) {
-    return {
+  let artifacts;
+  let networkRecords;
+  let stylesheet;
+
+  beforeEach(() => {
+    stylesheet = {content: ''};
+    artifacts = {
       devtoolsLogs: {[Audit.DEFAULT_PASS]: []},
       requestNetworkRecords: () => Promise.resolve(networkRecords),
-      Fonts: fonts,
+      URL: {finalUrl: 'https://example.com/foo/bar/page'},
+      CSSUsage: {stylesheets: [stylesheet]},
     };
-  }
-
-  it('fails when not all fonts have a correct font-display rule', () => {
-    const webFonts = [
-      Object.assign({}, openSansFont, {display: 'block'}),
-      openSansFontBold,
-    ];
-
-    return Audit.audit(getArtifacts([
-      {
-        url: openSansFont.src[0],
-        endTime: 3, startTime: 1,
-        resourceType: NetworkRequest.TYPES.Font,
-      },
-      {
-        url: openSansFontBold.src[0],
-        endTime: 3, startTime: 1,
-        resourceType: NetworkRequest.TYPES.Font,
-      },
-    ], webFonts)).then(result => {
-      const items = [{
-        url: openSansFontBold.src[0],
-        wastedMs: 2000,
-      }];
-      assert.strictEqual(result.rawValue, false);
-      assert.deepEqual(result.details.items, items);
-    });
   });
 
-  it('passes when all fonts have a correct font-display rule', () => {
-    const webFonts = [
-      Object.assign({}, openSansFont, {display: 'block'}),
-      Object.assign({}, openSansFontBold, {display: 'fallback'}),
+  it('fails when not all fonts have a correct font-display rule', async () => {
+    stylesheet.content = `
+      @font-face {
+        src: url("./font-a.woff");
+      }
+
+      @font-face {
+        src: url('../font-b.woff');
+      }
+
+      @font-face {
+        src: url(font.woff);
+      }
+    `;
+
+    networkRecords = [
+      {
+        url: 'https://example.com/foo/bar/font-a.woff',
+        endTime: 3, startTime: 1,
+        resourceType: 'Font',
+      },
+      {
+        url: 'https://example.com/foo/font-b.woff',
+        endTime: 5, startTime: 1,
+        resourceType: 'Font',
+      },
+      {
+        url: 'https://example.com/foo/bar/font.woff',
+        endTime: 2, startTime: 1,
+        resourceType: 'Font',
+      },
     ];
 
-    return Audit.audit(getArtifacts([
+    const result = await Audit.audit(artifacts);
+    const items = [
+      {url: networkRecords[0].url, wastedMs: 2000},
+      {url: networkRecords[1].url, wastedMs: 3000},
+      {url: networkRecords[2].url, wastedMs: 1000},
+    ];
+    assert.strictEqual(result.rawValue, false);
+    assert.deepEqual(result.details.items, items);
+  });
+
+  it('passes when all fonts have a correct font-display rule', async () => {
+    stylesheet.content = `
+      @font-face {
+        font-display: 'block';
+        src: url("./font-a.woff");
+      }
+
+      @font-face {
+        font-display: 'fallback';
+        src: url('../font-b.woff');
+      }
+
+      @font-face {
+        font-display: 'optional';
+        src: url(font.woff);
+      }
+    `;
+
+    networkRecords = [
       {
-        url: openSansFont.src[0],
+        url: 'https://example.com/foo/bar/font-a.woff',
         endTime: 3, startTime: 1,
-        resourceType: NetworkRequest.TYPES.Font,
+        resourceType: 'Font',
       },
       {
-        url: openSansFontBold.src[0],
-        endTime: 3, startTime: 1,
-        resourceType: NetworkRequest.TYPES.Font,
+        url: 'https://example.com/foo/font-b.woff',
+        endTime: 5, startTime: 1,
+        resourceType: 'Font',
       },
-    ], webFonts)).then(result => {
-      assert.strictEqual(result.rawValue, true);
-    });
+      {
+        url: 'https://example.com/foo/bar/font.woff',
+        endTime: 2, startTime: 1,
+        resourceType: 'Font',
+      },
+    ];
+
+    const result = await Audit.audit(artifacts);
+    assert.strictEqual(result.rawValue, true);
+    assert.deepEqual(result.details.items, []);
   });
 });
