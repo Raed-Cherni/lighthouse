@@ -9,7 +9,6 @@
 
 const Runner = require('../../runner.js');
 const CriticalRequestChains = require('../../audits/critical-request-chains.js');
-const networkRecordsToDevtoolsLog = require('../network-records-to-devtools-log.js');
 const assert = require('assert');
 
 const FAILING_REQUEST_CHAIN = {
