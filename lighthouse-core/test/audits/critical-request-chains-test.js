@@ -7,7 +7,9 @@
 
 /* eslint-env jest */
 
+const Runner = require('../../runner.js');
 const CriticalRequestChains = require('../../audits/critical-request-chains.js');
+const networkRecordsToDevtoolsLog = require('../network-records-to-devtools-log.js');
 const assert = require('assert');
 
 const FAILING_REQUEST_CHAIN = {
@@ -70,17 +72,14 @@ const PASSING_REQUEST_CHAIN_2 = {
 const EMPTY_REQUEST_CHAIN = {};
 
 const mockArtifacts = (mockChain) => {
-  return {
+  return Object.assign(Runner.instantiateComputedArtifacts(), {
     devtoolsLogs: {
       [CriticalRequestChains.DEFAULT_PASS]: [],
-    },
-    requestNetworkRecords: () => {
-      return Promise.resolve([]);
     },
     requestCriticalRequestChains: function() {
       return Promise.resolve(mockChain);
     },
-  };
+  });
 };
 
 describe('Performance: critical-request-chains audit', () => {
