@@ -16,24 +16,23 @@ const Runner = require('../../runner');
 const pwaTrace = require('../fixtures/traces/progressive-app-m60.json');
 const pwaDevtoolsLog = require('../fixtures/traces/progressive-app-m60.devtools.log.json');
 const networkRecordsToDevtoolsLog = require('../network-records-to-devtools-log.js');
+const createTestTrace = require('../create-test-trace.js');
 
 const defaultMainResource = {
-  _endTime: 1,
+  url: 'http://www.example.com',
 };
 
 describe('Performance: uses-rel-preload audit', () => {
   let mockGraph;
   let mockSimulator;
 
-  const mockArtifacts = (networkRecords, mainResource = defaultMainResource) => {
+  const mockArtifacts = (networkRecords, finalUrl) => {
     return Object.assign(Runner.instantiateComputedArtifacts(), {
-      traces: {[UsesRelPreload.DEFAULT_PASS]: {traceEvents: []}},
+      traces: {[UsesRelPreload.DEFAULT_PASS]: createTestTrace({traceEnd: 500})},
       devtoolsLogs: {[UsesRelPreload.DEFAULT_PASS]: networkRecordsToDevtoolsLog(networkRecords)},
-      requestLoadSimulator: () => mockSimulator,
-      requestPageDependencyGraph: () => mockGraph,
-      requestMainResource: () => {
-        return Promise.resolve(mainResource);
-      },
+      URL: {finalUrl},
+      // requestLoadSimulator: () => mockSimulator,
+      // requestPageDependencyGraph: () => mockGraph,
     });
   };
 
@@ -42,10 +41,7 @@ describe('Performance: uses-rel-preload audit', () => {
   });
 
   it('should suggest preload resource', () => {
-    const mainResource = Object.assign({}, defaultMainResource, {
-      url: 'http://www.example.com:3000',
-      redirects: [''],
-    });
+    const finalUrl = 'http://www.example.com:3000';
 
     const networkRecords = [
       {
@@ -143,7 +139,7 @@ describe('Performance: uses-rel-preload audit', () => {
       },
     };
 
-    return UsesRelPreload.audit(mockArtifacts(networkRecords, mainResource), {}).then(
+    return UsesRelPreload.audit(mockArtifacts(networkRecords, finalUrl), {}).then(
       output => {
         assert.equal(output.rawValue, 1250);
         assert.equal(output.details.items.length, 2);
@@ -153,8 +149,10 @@ describe('Performance: uses-rel-preload audit', () => {
     );
   });
 
-  it(`shouldn't suggest preload for already preloaded records`, () => {
+  it.only(`shouldn't suggest preload for already preloaded records`, () => {
+    const finalUrl = defaultMainResource.url;
     const networkRecords = [
+      defaultMainResource,
       {
         requestId: '3',
         startTime: 10,
@@ -163,14 +161,17 @@ describe('Performance: uses-rel-preload audit', () => {
       },
     ];
 
-    return UsesRelPreload.audit(mockArtifacts(networkRecords), {}).then(output => {
+    const settings = {throttlingMethod: 'provided'};
+    return UsesRelPreload.audit(mockArtifacts(networkRecords, finalUrl), {settings}).then(output => {
       assert.equal(output.rawValue, 0);
       assert.equal(output.details.items.length, 0);
     });
   });
 
   it(`shouldn't suggest preload for protocol data`, () => {
+    const finalUrl = defaultMainResource.url;
     const networkRecords = [
+      defaultMainResource,
       {
         requestId: '3',
         protocol: 'data',
@@ -178,14 +179,16 @@ describe('Performance: uses-rel-preload audit', () => {
       },
     ];
 
-    return UsesRelPreload.audit(mockArtifacts(networkRecords), {}).then(output => {
+    return UsesRelPreload.audit(mockArtifacts(networkRecords, finalUrl), {}).then(output => {
       assert.equal(output.rawValue, 0);
       assert.equal(output.details.items.length, 0);
     });
   });
 
   it(`shouldn't suggest preload for protocol blob`, () => {
+    const finalUrl = defaultMainResource.url;
     const networkRecords = [
+      defaultMainResource,
       {
         requestId: '3',
         protocol: 'blob',
@@ -193,7 +196,7 @@ describe('Performance: uses-rel-preload audit', () => {
       },
     ];
 
-    return UsesRelPreload.audit(mockArtifacts(networkRecords), {}).then(output => {
+    return UsesRelPreload.audit(mockArtifacts(networkRecords, finalUrl), {}).then(output => {
       assert.equal(output.rawValue, 0);
       assert.equal(output.details.items.length, 0);
     });

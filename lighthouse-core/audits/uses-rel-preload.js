@@ -169,6 +169,7 @@ class UsesRelPreloadAudit extends Audit {
     const URL = artifacts.URL;
     const simulatorOptions = {trace, devtoolsLog, settings: context.settings};
 
+    debugger;
     const [mainResource, graph, simulator] = await Promise.all([
       artifacts.requestMainResource({devtoolsLog, URL}),
       artifacts.requestPageDependencyGraph({trace, devtoolsLog}),

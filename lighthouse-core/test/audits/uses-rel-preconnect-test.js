@@ -57,7 +57,10 @@ describe('Performance: uses-rel-preconnect audit', () => {
       mainResource,
       {
         url: 'https://cdn.example.com/request',
-        initiator: mainResource,
+        initiator: {
+          type: 'parser',
+          url: mainResource.url,
+        },
       },
     ];
     const artifacts = Object.assign(Runner.instantiateComputedArtifacts(), {
