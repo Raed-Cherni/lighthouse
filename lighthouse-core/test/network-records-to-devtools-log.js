@@ -45,6 +45,11 @@ function headersArrayToHeadersDict(headersArray = []) {
  * @return {LH.Protocol.RawEventMessage}
  */
 function getRequestWillBeSentEvent(networkRecord, index) {
+  let initiator;
+  if (networkRecord.initiator) {
+    initiator = {...networkRecord.initiator};
+  }
+
   return {
     method: 'Network.requestWillBeSent',
     params: {
@@ -59,7 +64,7 @@ function getRequestWillBeSentEvent(networkRecord, index) {
       },
       timestamp: networkRecord.startTime || 0,
       wallTime: 0,
-      initiator: networkRecord.initiator || {type: 'other'},
+      initiator: initiator || {type: 'other'},
       type: networkRecord.resourceType || 'Document',
       frameId: `${idBase}.1`,
       redirectResponse: networkRecord.redirectResponse,
@@ -73,9 +78,12 @@ function getRequestWillBeSentEvent(networkRecord, index) {
  */
 function getResponseReceivedEvent(networkRecord, index) {
   const headers = headersArrayToHeadersDict(networkRecord.responseHeaders);
-  const timing = networkRecord.timing;
-  if (timing && timing.requestTime === undefined) {
-    timing.requestTime = networkRecord.startTime || 0;
+  let timing;
+  if (networkRecord.timing) {
+    timing = {...networkRecord.timing};
+    if (timing.requestTime === undefined) {
+      timing.requestTime = networkRecord.startTime || 0;
+    }
   }
 
   return {

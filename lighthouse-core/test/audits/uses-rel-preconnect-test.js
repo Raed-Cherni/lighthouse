@@ -42,7 +42,7 @@ describe('Performance: uses-rel-preconnect audit', () => {
     ];
     const artifacts = Object.assign(Runner.instantiateComputedArtifacts(), {
       devtoolsLogs: {[UsesRelPreconnect.DEFAULT_PASS]: networkRecordsToDevtoolsLog(networkRecords)},
-      requestMainResource: () => Promise.resolve(mainResource),
+      URL: {finalUrl: mainResource.url},
       requestLoadSimulator: () => Promise.resolve(simulator),
     });
 
@@ -65,7 +65,7 @@ describe('Performance: uses-rel-preconnect audit', () => {
     ];
     const artifacts = Object.assign(Runner.instantiateComputedArtifacts(), {
       devtoolsLogs: {[UsesRelPreconnect.DEFAULT_PASS]: networkRecordsToDevtoolsLog(networkRecords)},
-      requestMainResource: () => Promise.resolve(mainResource),
+      URL: {finalUrl: mainResource.url},
       requestLoadSimulator: () => Promise.resolve(simulator),
     });
 
@@ -85,7 +85,7 @@ describe('Performance: uses-rel-preconnect audit', () => {
     ];
     const artifacts = Object.assign(Runner.instantiateComputedArtifacts(), {
       devtoolsLogs: {[UsesRelPreconnect.DEFAULT_PASS]: networkRecordsToDevtoolsLog(networkRecords)},
-      requestMainResource: () => Promise.resolve(mainResource),
+      URL: {finalUrl: mainResource.url},
       requestLoadSimulator: () => Promise.resolve(simulator),
     });
 
@@ -111,7 +111,7 @@ describe('Performance: uses-rel-preconnect audit', () => {
     ];
     const artifacts = Object.assign(Runner.instantiateComputedArtifacts(), {
       devtoolsLogs: {[UsesRelPreconnect.DEFAULT_PASS]: networkRecordsToDevtoolsLog(networkRecords)},
-      requestMainResource: () => Promise.resolve(mainResource),
+      URL: {finalUrl: mainResource.url},
       requestLoadSimulator: () => Promise.resolve(simulator),
     });
 
@@ -132,7 +132,7 @@ describe('Performance: uses-rel-preconnect audit', () => {
     ];
     const artifacts = Object.assign(Runner.instantiateComputedArtifacts(), {
       devtoolsLogs: {[UsesRelPreconnect.DEFAULT_PASS]: networkRecordsToDevtoolsLog(networkRecords)},
-      requestMainResource: () => Promise.resolve(mainResource),
+      URL: {finalUrl: mainResource.url},
       requestLoadSimulator: () => Promise.resolve(simulator),
     });
 
@@ -168,7 +168,7 @@ describe('Performance: uses-rel-preconnect audit', () => {
     ];
     const artifacts = Object.assign(Runner.instantiateComputedArtifacts(), {
       devtoolsLogs: {[UsesRelPreconnect.DEFAULT_PASS]: networkRecordsToDevtoolsLog(networkRecords)},
-      requestMainResource: () => Promise.resolve(mainResource),
+      URL: {finalUrl: mainResource.url},
       requestLoadSimulator: () => Promise.resolve(simulator),
     });
 
@@ -206,7 +206,7 @@ describe('Performance: uses-rel-preconnect audit', () => {
     ];
     const artifacts = Object.assign(Runner.instantiateComputedArtifacts(), {
       devtoolsLogs: {[UsesRelPreconnect.DEFAULT_PASS]: networkRecordsToDevtoolsLog(networkRecords)},
-      requestMainResource: () => Promise.resolve(mainResource),
+      URL: {finalUrl: mainResource.url},
       requestLoadSimulator: () => Promise.resolve(simulator),
     });
 

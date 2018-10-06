@@ -9,7 +9,6 @@
 /* eslint-env jest */
 
 const UsesRelPreload = require('../../audits/uses-rel-preload.js');
-const NetworkNode = require('../../lib/dependency-graph/network-node');
 const assert = require('assert');
 
 const Runner = require('../../runner');
@@ -18,185 +17,198 @@ const pwaDevtoolsLog = require('../fixtures/traces/progressive-app-m60.devtools.
 const networkRecordsToDevtoolsLog = require('../network-records-to-devtools-log.js');
 const createTestTrace = require('../create-test-trace.js');
 
+const defaultMainResourceUrl = 'http://www.example.com/';
 const defaultMainResource = {
-  url: 'http://www.example.com',
+  requestId: '1',
+  url: defaultMainResourceUrl,
+  startTime: 0,
+  priority: 'VeryHigh',
+  timing: {
+    proxyStart: -1,
+    proxyEnd: -1,
+    dnsStart: 147.84,
+    dnsEnd: 147.848,
+    connectStart: 147.848,
+    connectEnd: 180.71,
+    sslStart: 151.87,
+    sslEnd: 180.704,
+    workerStart: -1,
+    workerReady: -1,
+    sendStart: 181.443,
+    sendEnd: 181.553,
+    pushStart: 0,
+    pushEnd: 0,
+    receiveHeadersEnd: 500,
+  },
 };
 
 describe('Performance: uses-rel-preload audit', () => {
-  let mockGraph;
-  let mockSimulator;
-
   const mockArtifacts = (networkRecords, finalUrl) => {
     return Object.assign(Runner.instantiateComputedArtifacts(), {
-      traces: {[UsesRelPreload.DEFAULT_PASS]: createTestTrace({traceEnd: 500})},
+      traces: {[UsesRelPreload.DEFAULT_PASS]: createTestTrace({traceEnd: 5000})},
       devtoolsLogs: {[UsesRelPreload.DEFAULT_PASS]: networkRecordsToDevtoolsLog(networkRecords)},
       URL: {finalUrl},
-      // requestLoadSimulator: () => mockSimulator,
-      // requestPageDependencyGraph: () => mockGraph,
     });
   };
 
-  afterEach(() => {
-    mockSimulator = undefined;
-  });
+  function getMockNetworkRecords() {
+    const secondRecordUrl = 'http://www.example.com/script.js';
+    return [
+      defaultMainResource,
+      {
+        requestId: '2',
+        startTime: 10,
+        isLinkPreload: false,
+        url: secondRecordUrl,
+        timing: defaultMainResource.timing,
+        priority: 'High',
+        initiator: {
+          type: 'parser',
+          url: defaultMainResourceUrl,
+        },
+      }, {
+        // Normally this request would be flagged for preloading.
+        requestId: '3',
+        startTime: 20,
+        isLinkPreload: false,
+        url: 'http://www.example.com/a-different-script.js',
+        timing: defaultMainResource.timing,
+        priority: 'High',
+        initiator: {
+          type: 'parser',
+          url: secondRecordUrl,
+        },
+      },
+    ];
+  }
 
   it('should suggest preload resource', () => {
-    const finalUrl = 'http://www.example.com:3000';
+    const rootNodeUrl = 'http://example.com:3000';
+    const mainDocumentNodeUrl = 'http://www.example.com:3000';
+    const scriptNodeUrl = 'http://www.example.com/script.js';
+    const scriptAddedNodeUrl = 'http://www.example.com/script-added.js';
+    const scriptSubNodeUrl = 'http://sub.example.com/script-sub.js';
+    const scriptOtherNodeUrl = 'http://otherdomain.com/script-other.js';
 
     const networkRecords = [
       {
         requestId: '2',
         priority: 'High',
         isLinkPreload: false,
-        url: 'http://example.com:3000',
+        startTime: 0,
+        endTime: 0.5,
+        timing: {receiveHeadersEnd: 500},
+        url: rootNodeUrl,
       },
       {
         requestId: '2:redirect',
         resourceType: 'Document',
         priority: 'High',
         isLinkPreload: false,
-        url: 'http://www.example.com:3000',
+        startTime: 0.5,
+        endTime: 1,
+        timing: {receiveHeadersEnd: 500},
+        url: mainDocumentNodeUrl,
       },
       {
         requestId: '3',
         resourceType: 'Script',
         priority: 'High',
         isLinkPreload: false,
-        url: 'http://www.example.com/script.js',
+        startTime: 1,
+        endTime: 2,
+        timing: {receiveHeadersEnd: 1000},
+        url: scriptNodeUrl,
+        initiator: {type: 'parser', url: mainDocumentNodeUrl},
       },
       {
         requestId: '4',
         resourceType: 'Script',
         priority: 'High',
         isLinkPreload: false,
-        url: 'http://www.example.com/script-added.js',
+        startTime: 2,
+        endTime: 3.25,
+        timing: {receiveHeadersEnd: 1250},
+        url: scriptAddedNodeUrl,
+        initiator: {type: 'script', url: scriptNodeUrl},
       },
       {
         requestId: '5',
         resourceType: 'Script',
         priority: 'High',
         isLinkPreload: false,
-        url: 'http://sub.example.com/script-sub.js',
+        startTime: 2,
+        endTime: 3,
+        timing: {receiveHeadersEnd: 1000},
+        url: scriptSubNodeUrl,
+        initiator: {type: 'script', url: scriptNodeUrl},
       },
       {
         requestId: '6',
         resourceType: 'Script',
         priority: 'High',
         isLinkPreload: false,
-        url: 'http://otherdomain.com/script-other.js',
+        startTime: 2,
+        endTime: 3.5,
+        timing: {receiveHeadersEnd: 1500},
+        url: scriptOtherNodeUrl,
+        initiator: {type: 'script', url: scriptNodeUrl},
       },
     ];
 
-    const rootNode = new NetworkNode(networkRecords[0]);
-    const mainDocumentNode = new NetworkNode(networkRecords[1]);
-    const scriptNode = new NetworkNode(networkRecords[2]);
-    const scriptAddedNode = new NetworkNode(networkRecords[3]);
-    const scriptSubNode = new NetworkNode(networkRecords[4]);
-    const scriptOtherNode = new NetworkNode(networkRecords[5]);
-
-    mainDocumentNode.setIsMainDocument(true);
-    mainDocumentNode.addDependency(rootNode);
-    scriptNode.addDependency(mainDocumentNode);
-    scriptAddedNode.addDependency(scriptNode);
-    scriptSubNode.addDependency(scriptNode);
-    scriptOtherNode.addDependency(scriptNode);
-
-    mockGraph = rootNode;
-    mockSimulator = {
-      simulate(graph) {
-        const nodesByUrl = new Map();
-        graph.traverse(node => nodesByUrl.set(node.record.url, node));
-
-        const rootNodeLocal = nodesByUrl.get(rootNode.record.url);
-        const mainDocumentNodeLocal = nodesByUrl.get(mainDocumentNode.record.url);
-        const scriptNodeLocal = nodesByUrl.get(scriptNode.record.url);
-        const scriptAddedNodeLocal = nodesByUrl.get(scriptAddedNode.record.url);
-        const scriptSubNodeLocal = nodesByUrl.get(scriptSubNode.record.url);
-        const scriptOtherNodeLocal = nodesByUrl.get(scriptOtherNode.record.url);
-
-        const nodeTimings = new Map([
-          [rootNodeLocal, {starTime: 0, endTime: 500}],
-          [mainDocumentNodeLocal, {startTime: 500, endTime: 1000}],
-          [scriptNodeLocal, {startTime: 1000, endTime: 2000}],
-          [scriptAddedNodeLocal, {startTime: 2000, endTime: 3250}],
-          [scriptSubNodeLocal, {startTime: 2000, endTime: 3000}],
-          [scriptOtherNodeLocal, {startTime: 2000, endTime: 3500}],
-        ]);
-
-        if (scriptAddedNodeLocal.getDependencies()[0] === mainDocumentNodeLocal) {
-          nodeTimings.set(scriptAddedNodeLocal, {startTime: 1000, endTime: 2000});
-        }
-
-        if (scriptSubNodeLocal.getDependencies()[0] === mainDocumentNodeLocal) {
-          nodeTimings.set(scriptSubNodeLocal, {startTime: 1000, endTime: 2000});
-        }
-
-        if (scriptOtherNodeLocal.getDependencies()[0] === mainDocumentNodeLocal) {
-          nodeTimings.set(scriptOtherNodeLocal, {startTime: 1000, endTime: 2500});
-        }
-
-        return {timeInMs: 3500, nodeTimings};
-      },
-    };
-
-    return UsesRelPreload.audit(mockArtifacts(networkRecords, finalUrl), {}).then(
+    const artifacts = mockArtifacts(networkRecords, mainDocumentNodeUrl);
+    return UsesRelPreload.audit(artifacts, {settings: {}}).then(
       output => {
-        assert.equal(output.rawValue, 1250);
+        assert.equal(output.details.overallSavingsMs, 330);
         assert.equal(output.details.items.length, 2);
-        assert.equal(output.details.items[0].url, 'http://www.example.com/script-added.js');
-        assert.equal(output.details.items[1].url, 'http://sub.example.com/script-sub.js');
+        assert.equal(output.details.items[0].url, scriptSubNodeUrl);
+        assert.equal(output.details.items[0].wastedMs, 330);
+        assert.equal(output.details.items[1].url, scriptAddedNodeUrl);
+        assert.equal(output.details.items[1].wastedMs, 180);
       }
     );
   });
 
-  it.only(`shouldn't suggest preload for already preloaded records`, () => {
-    const finalUrl = defaultMainResource.url;
-    const networkRecords = [
-      defaultMainResource,
-      {
-        requestId: '3',
-        startTime: 10,
-        isLinkPreload: true,
-        url: 'http://www.example.com/script.js',
-      },
-    ];
+  it(`should suggest preload for worthy records`, () => {
+    const networkRecords = getMockNetworkRecords();
 
-    const settings = {throttlingMethod: 'provided'};
-    return UsesRelPreload.audit(mockArtifacts(networkRecords, finalUrl), {settings}).then(output => {
-      assert.equal(output.rawValue, 0);
+    const artifacts = mockArtifacts(networkRecords, defaultMainResourceUrl);
+    return UsesRelPreload.audit(artifacts, {settings: {}}).then(output => {
+      assert.equal(output.details.overallSavingsMs, 314);
+      assert.equal(output.details.items.length, 1);
+    });
+  });
+
+  it(`shouldn't suggest preload for already preloaded records`, () => {
+    const networkRecords = getMockNetworkRecords();
+    networkRecords[2].isLinkPreload = true;
+
+    const artifacts = mockArtifacts(networkRecords, defaultMainResourceUrl);
+    return UsesRelPreload.audit(artifacts, {settings: {}}).then(output => {
+      assert.equal(output.score, 1);
+      assert.equal(output.details.overallSavingsMs, 0);
       assert.equal(output.details.items.length, 0);
     });
   });
 
   it(`shouldn't suggest preload for protocol data`, () => {
-    const finalUrl = defaultMainResource.url;
-    const networkRecords = [
-      defaultMainResource,
-      {
-        requestId: '3',
-        protocol: 'data',
-        startTime: 10,
-      },
-    ];
+    const networkRecords = getMockNetworkRecords();
+    networkRecords[2].protocol = 'data';
 
-    return UsesRelPreload.audit(mockArtifacts(networkRecords, finalUrl), {}).then(output => {
-      assert.equal(output.rawValue, 0);
+    const artifacts = mockArtifacts(networkRecords, defaultMainResourceUrl);
+    return UsesRelPreload.audit(artifacts, {settings: {}}).then(output => {
+      assert.equal(output.score, 1);
+      assert.equal(output.details.overallSavingsMs, 0);
       assert.equal(output.details.items.length, 0);
     });
   });
 
   it(`shouldn't suggest preload for protocol blob`, () => {
-    const finalUrl = defaultMainResource.url;
-    const networkRecords = [
-      defaultMainResource,
-      {
-        requestId: '3',
-        protocol: 'blob',
-        startTime: 10,
-      },
-    ];
+    const networkRecords = getMockNetworkRecords();
+    networkRecords[2].protocol = 'blob';
 
-    return UsesRelPreload.audit(mockArtifacts(networkRecords, finalUrl), {}).then(output => {
+    const artifacts = mockArtifacts(networkRecords, defaultMainResourceUrl);
+    return UsesRelPreload.audit(artifacts, {settings: {}}).then(output => {
       assert.equal(output.rawValue, 0);
       assert.equal(output.details.items.length, 0);
     });
